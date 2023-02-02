@@ -1,3 +1,10 @@
 superuser
 username: admin
 password: admin@lemon
+
+Manager
+username: johndoe
+password: johndoe@littlelemon
+
+username: jimmydoe
+password: jimmydoe@littlelemon
