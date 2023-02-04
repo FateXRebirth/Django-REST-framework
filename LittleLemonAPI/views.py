@@ -1,9 +1,12 @@
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
 from django.contrib.auth.models import User, Group
-from .serializers import ManagerSerializer
 from django.shortcuts import get_object_or_404
+from .serializers import ManagerSerializer, MenuItemSerializer
+from .models import MenuItem
+
 
 @api_view(['GET', 'POST'])
 def manager_list(request):
@@ -68,3 +71,17 @@ def delivery_crew_detail(request, userId):
         return Response({ "message": "error" }, status=status.HTTP_400_BAD_REQUEST)
     else:
         return Response({ "message": "method not allowed" }, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+class MenuItemsList(APIView):
+    def get(self, request, format=None):        
+        menu_items = MenuItem.objects.all()
+        serializer = MenuItemSerializer(menu_items, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, format=None):
+        serializer = MenuItemSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({ "message": "new menu item added" }, status=status.HTTP_201_CREATED)
+        return Response({ "errorMessages": serializer.errors }, status=status.HTTP_400_BAD_REQUEST)
+        
