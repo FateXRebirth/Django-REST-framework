@@ -84,4 +84,29 @@ class MenuItemsList(APIView):
             serializer.save()
             return Response({ "message": "new menu item added" }, status=status.HTTP_201_CREATED)
         return Response({ "errorMessages": serializer.errors }, status=status.HTTP_400_BAD_REQUEST)
-        
+    
+class MenuItemsDetail(APIView):
+    def get(self, request, id, format=None):
+        menu_item = MenuItem.objects.get(id=id)
+        serializer = MenuItemSerializer(menu_item)
+        return Response(serializer.data)
+
+    def put(self, request, id, format=None):
+        menu_item = get_object_or_404(MenuItem, id=id)
+        serializer = MenuItemSerializer(menu_item, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response({ "errorMessages": serializer.errors }, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request, id, format=None):
+        menu_item = get_object_or_404(MenuItem, id=id)
+        serializer = MenuItemSerializer(menu_item, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+        return Response(serializer.data)
+    
+    def delete(self, request, id, format=None):
+        menu_item = get_object_or_404(MenuItem, id=id)
+        menu_item.delete()
+        return Response(status=status.HTTP_200_OK)
