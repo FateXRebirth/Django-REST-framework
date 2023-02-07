@@ -3,9 +3,9 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
 from django.contrib.auth.models import User, Group
-from django.shortcuts import get_object_or_404
-from .serializers import ManagerSerializer, MenuItemSerializer
-from .models import MenuItem
+from django.shortcuts import get_object_or_404, get_list_or_404
+from .serializers import ManagerSerializer, MenuItemSerializer, CartSerializer
+from .models import MenuItem, Cart
 
 
 @api_view(['GET', 'POST'])
@@ -110,3 +110,32 @@ class MenuItemsDetail(APIView):
         menu_item = get_object_or_404(MenuItem, id=id)
         menu_item.delete()
         return Response(status=status.HTTP_200_OK)
+
+class CartList(APIView):
+    def get(self, request, format=None):
+        cart = Cart.objects.filter(user=request.user)
+        serializer = CartSerializer(cart, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, format=None):
+        menu_item_name = request.data['menuitem']
+        menu_item = MenuItem.objects.get(title=menu_item_name)
+        data = {
+            "user": request.user.id,
+            "menuitem": menu_item.id,
+            "quantity": request.data['quantity'],
+            "unit_price": menu_item.price,
+            "price": int(request.data['quantity']) * menu_item.price
+            
+        }
+        serializer = CartSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({ "message": "new menu item added to cart" }, status=status.HTTP_201_CREATED)
+        return Response({ "errorMessages": serializer.errors }, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, format=None):
+        for cart in get_list_or_404(Cart, user=request.user):
+            cart.delete()
+        return Response(status=status.HTTP_200_OK)
+
