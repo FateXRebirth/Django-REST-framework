@@ -26,6 +26,10 @@ class Cart(models.Model):
 
     class Meta: 
         unique_together = ('menuitem', 'user')
+    
+    def __str__(self) -> str:
+        return "user: {}, menuitem: {}, quantity: {}, unit_price: {}, price: {}".format(self.user, self.menuitem, self.quantity, self.unit_price, self.price)
+
         
 class Order(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -33,9 +37,12 @@ class Order(models.Model):
     status = models.BooleanField(db_index=True, default=0)
     total = models.DecimalField(max_digits=6, decimal_places=2)
     date = models.DateField(db_index=True)
+    
+    def __str__(self) -> str:
+        return "user: {}, delivery_crew: {}, status: {}, total: {}, date: {}".format(self.user, self.delivery_crew, self.status, self.total, self.date)
 
 class OrderItem(models.Model):
-    order = models.ForeignKey(Order, on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, related_name='order_item', on_delete=models.CASCADE)
     menuitem = models.ForeignKey(MenuItem, on_delete=models.CASCADE)
     quantity = models.SmallIntegerField()
     unit_price = models.DecimalField(max_digits=6, decimal_places=2)

@@ -4,9 +4,9 @@ from rest_framework.decorators import api_view
 from rest_framework import status
 from django.contrib.auth.models import User, Group
 from django.shortcuts import get_object_or_404, get_list_or_404
-from .serializers import ManagerSerializer, MenuItemSerializer, CartSerializer
-from .models import MenuItem, Cart
-
+from .serializers import ManagerSerializer, MenuItemSerializer, CartSerializer, OrderSerializer
+from .models import MenuItem, Cart, Order, OrderItem
+from datetime import datetime
 
 @api_view(['GET', 'POST'])
 def manager_list(request):
@@ -139,3 +139,21 @@ class CartList(APIView):
             cart.delete()
         return Response(status=status.HTTP_200_OK)
 
+class OrdersList(APIView):
+    def get(self, request, format=None):
+        orders = Order.objects.filter(user=request.user)    
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data)
+
+    def post(self, request, format=None):
+        order = Order(user=request.user, total=0, date=datetime.now())
+        total = 0
+        for item in Cart.objects.filter(user=request.user):
+            order_item = OrderItem(order=order, menuitem=item.menuitem, quantity=item.quantity, unit_price=item.unit_price, price=item.price)
+            total += item.price
+            order_item.save()
+            item.delete()
+        order.total = total
+        order.save()
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
