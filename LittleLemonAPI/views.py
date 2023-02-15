@@ -8,6 +8,14 @@ from .serializers import ManagerSerializer, MenuItemSerializer, CartSerializer, 
 from .models import MenuItem, Cart, Order, OrderItem
 from datetime import datetime
 
+def get_group(user):
+    if user.groups.filter(name="Manager").exists():
+        return 'Manager'    
+    elif user.groups.filter(name="Delivery Crew").exists():       
+        return 'Delivery Crew'
+    else:
+        return 'Customer'     
+
 @api_view(['GET', 'POST'])
 def manager_list(request):
     if request.method == 'GET':
@@ -141,7 +149,11 @@ class CartList(APIView):
 
 class OrdersList(APIView):
     def get(self, request, format=None):
-        orders = Order.objects.filter(user=request.user)    
+        user_group = get_group(request.user)
+        if user_group == 'Manager':
+            orders = Order.objects.all()
+        else:
+            orders = Order.objects.filter(user=request.user)    
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data)
 
@@ -156,4 +168,30 @@ class OrdersList(APIView):
         order.total = total
         order.save()
         serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
+class OrdersDetail(APIView):
+    def get(self, request, id, format=None):
+        order = Order.objects.get(id=id)
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+    
+    def put(self, request, id, format=None):
+        order = get_object_or_404(Order, id=id)
+        user_group = get_group(request.user)
+        data = {}
+        if user_group == 'Customer':
+            data['delivery_crew'] = request.data['delivery_crew']
+            data['status'] = request.data['status']
+        serializer = OrderSerializer(order, data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response({ "errorMessages": serializer.errors }, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request, id, format=None):
+        order = get_object_or_404(Order, id=id)
+        serializer = OrderSerializer(order, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
         return Response(serializer.data)

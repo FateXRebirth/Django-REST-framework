@@ -1,29 +1,34 @@
-from rest_framework.serializers import ModelSerializer
+from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import MenuItem, Cart, Order, OrderItem
 
-class ManagerSerializer(ModelSerializer):
+class ManagerSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id','username','email']
         
-class MenuItemSerializer(ModelSerializer):
+class MenuItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = MenuItem
         fields = ['id', 'title', 'price', 'featured', 'category']
 
-class CartSerializer(ModelSerializer):
+class CartSerializer(serializers.ModelSerializer):
     class Meta:
         model = Cart
         fields = '__all__'
 
-class OrderItemSerializer(ModelSerializer):
+class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
         fields = '__all__'
 
-class OrderSerializer(ModelSerializer):
-    order_item = OrderItemSerializer(many=True)
+class OrderSerializer(serializers.ModelSerializer):
+    user = ManagerSerializer(read_only=True)
+    # delivery_crew = ManagerSerializer(required=False, allow_null=True)
+    # status = serializers.BooleanField(required=False)
+    total = serializers.DecimalField(max_digits=6, decimal_places=2, read_only=True)
+    date = serializers.DateField(read_only=True)
+    order_item = OrderItemSerializer(read_only=True, many=True)
     
     class Meta:
         model = Order

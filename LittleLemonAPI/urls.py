@@ -9,5 +9,6 @@ urlpatterns = [
     path('menu-items', views.MenuItemsList.as_view()),
     path('menu-items/<int:id>', views.MenuItemsDetail.as_view()),
     path('cart/menu-items', views.CartList.as_view()),
-    path('orders', views.OrdersList.as_view())
+    path('orders', views.OrdersList.as_view()),
+    path('orders/<int:id>', views.OrdersDetail.as_view())
 ]
