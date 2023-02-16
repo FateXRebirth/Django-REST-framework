@@ -8,72 +8,76 @@ from .serializers import ManagerSerializer, MenuItemSerializer, CartSerializer, 
 from .models import MenuItem, Cart, Order, OrderItem
 from datetime import datetime
 
-def get_group(user):
-    if user.groups.filter(name="Manager").exists():
-        return 'Manager'    
-    elif user.groups.filter(name="Delivery Crew").exists():       
-        return 'Delivery Crew'
-    else:
-        return 'Customer'     
+MANAGER_GROUP = "Manager"
+DELIVERY_CREW_GROUP = "Delivery Crew"
+CUSTOMER_GROUP = "Customer"
 
-@api_view(['GET', 'POST'])
+def get_group(user):
+    if user.groups.filter(name=MANAGER_GROUP).exists():
+        return MANAGER_GROUP    
+    elif user.groups.filter(name=DELIVERY_CREW_GROUP).exists():       
+        return DELIVERY_CREW_GROUP
+    else:
+        return CUSTOMER_GROUP     
+
+@api_view(["GET", "POST"])
 def manager_list(request):
-    if request.method == 'GET':
+    if request.method == "GET":
         managers = []
         for user in User.objects.all():
-            if user.groups.filter(name="Manager").exists():            
+            if user.groups.filter(name=MANAGER_GROUP).exists():            
                 serializer = ManagerSerializer(user)
                 managers.append(serializer.data)
         return Response(managers)
-    elif request.method == 'POST':
-        username = request.data['username']
+    elif request.method == "POST":
+        username = request.data["username"]
         if username:
             user = get_object_or_404(User, username=username)
-            managers = Group.objects.get(name="Manager")
+            managers = Group.objects.get(name=MANAGER_GROUP)
             managers.user_set.add(user)
             return Response({ "message": "user added to the manager group" }, status=status.HTTP_201_CREATED)
         return Response({ "message": "error" }, status=status.HTTP_400_BAD_REQUEST)
     else:
         return Response({ "message": "method not allowed" }, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-@api_view(['DELETE'])
+@api_view(["DELETE"])
 def manager_detail(request, userId):
-    if request.method == 'DELETE':
+    if request.method == "DELETE":
         if userId:
             user = get_object_or_404(User, id=userId)
-            managers = Group.objects.get(name="Manager")
+            managers = Group.objects.get(name=MANAGER_GROUP)
             managers.user_set.remove(user)
             return Response({ "message": "user removed from the manager group" }, status=status.HTTP_200_OK)
         return Response({ "message": "error" }, status=status.HTTP_400_BAD_REQUEST)
     else:
         return Response({ "message": "method not allowed" }, status=status.HTTP_405_METHOD_NOT_ALLOWED)
     
-@api_view(['GET', 'POST'])
+@api_view(["GET", "POST"])
 def delivery_crew_list(request):
-    if request.method == 'GET':
+    if request.method == "GET":
         delivery_crew = []
         for user in User.objects.all():
-            if user.groups.filter(name="Delivery Crew").exists():            
+            if user.groups.filter(name=DELIVERY_CREW_GROUP).exists():            
                 serializer = ManagerSerializer(user)
                 delivery_crew.append(serializer.data)
         return Response(delivery_crew)
-    elif request.method == 'POST':
-        username = request.data['username']
+    elif request.method == "POST":
+        username = request.data["username"]
         if username:
             user = get_object_or_404(User, username=username)
-            delivery_crew = Group.objects.get(name="Delivery Crew")
+            delivery_crew = Group.objects.get(name=DELIVERY_CREW_GROUP)
             delivery_crew.user_set.add(user)
             return Response({ "message": "user added to the delivery crew group" }, status=status.HTTP_201_CREATED)
         return Response({ "message": "error" }, status=status.HTTP_400_BAD_REQUEST)
     else:
         return Response({ "message": "method not allowed" }, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-@api_view(['DELETE'])
+@api_view(["DELETE"])
 def delivery_crew_detail(request, userId):
-    if request.method == 'DELETE':
+    if request.method == "DELETE":
         if userId:
             user = get_object_or_404(User, id=userId)
-            delivery_crew = Group.objects.get(name="Delivery Crew")
+            delivery_crew = Group.objects.get(name=DELIVERY_CREW_GROUP)
             delivery_crew.user_set.remove(user)
             return Response({ "message": "user removed from the delivery crew group" }, status=status.HTTP_200_OK)
         return Response({ "message": "error" }, status=status.HTTP_400_BAD_REQUEST)
@@ -126,14 +130,14 @@ class CartList(APIView):
         return Response(serializer.data)
 
     def post(self, request, format=None):
-        menu_item_name = request.data['menuitem']
+        menu_item_name = request.data["menuitem"]
         menu_item = MenuItem.objects.get(title=menu_item_name)
         data = {
             "user": request.user.id,
             "menuitem": menu_item.id,
-            "quantity": request.data['quantity'],
+            "quantity": request.data["quantity"],
             "unit_price": menu_item.price,
-            "price": int(request.data['quantity']) * menu_item.price
+            "price": int(request.data["quantity"]) * menu_item.price
             
         }
         serializer = CartSerializer(data=data)
@@ -150,39 +154,56 @@ class CartList(APIView):
 class OrdersList(APIView):
     def get(self, request, format=None):
         user_group = get_group(request.user)
-        if user_group == 'Manager':
+        if user_group == MANAGER_GROUP:
             orders = Order.objects.all()
+        elif user_group == DELIVERY_CREW_GROUP:
+            orders = Order.objects.filter(delivery_crew=request.user)    
         else:
-            orders = Order.objects.filter(user=request.user)    
+            orders = Order.objects.filter(user=request.user)
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data)
 
     def post(self, request, format=None):
-        order = Order(user=request.user, total=0, date=datetime.now())
-        total = 0
-        for item in Cart.objects.filter(user=request.user):
-            order_item = OrderItem(order=order, menuitem=item.menuitem, quantity=item.quantity, unit_price=item.unit_price, price=item.price)
-            total += item.price
-            order_item.save()
-            item.delete()
-        order.total = total
-        order.save()
-        serializer = OrderSerializer(order)
-        return Response(serializer.data)
+        user_group = get_group(request.user)
+        if user_group == CUSTOMER_GROUP:
+            order = Order(user=request.user, total=0, date=datetime.now())
+            total = 0
+            for item in Cart.objects.filter(user=request.user):
+                order_item = OrderItem(order=order, menuitem=item.menuitem, quantity=item.quantity, unit_price=item.unit_price, price=item.price)
+                total += item.price
+                order_item.save()
+                item.delete()
+            order.total = total
+            order.save()
+            serializer = OrderSerializer(order)
+            return Response(serializer.data)
+        else:
+            return Response("Not allowed", status=status.HTTP_403_FORBIDDEN)
+        
 
 class OrdersDetail(APIView):
     def get(self, request, id, format=None):
-        order = Order.objects.get(id=id)
-        serializer = OrderSerializer(order)
-        return Response(serializer.data)
+        user_group = get_group(request.user)
+        if user_group == CUSTOMER_GROUP:
+            order = Order.objects.get(id=id)
+            serializer = OrderSerializer(order)
+            return Response(serializer.data)
+        else:
+            return Response("Not allowed", status=status.HTTP_403_FORBIDDEN)
+      
     
     def put(self, request, id, format=None):
         order = get_object_or_404(Order, id=id)
         user_group = get_group(request.user)
+        print(user_group)
         data = {}
-        if user_group == 'Customer':
-            data['delivery_crew'] = request.data['delivery_crew']
-            data['status'] = request.data['status']
+        if user_group == MANAGER_GROUP:
+            data["delivery_crew"] = request.data["delivery_crew"]
+            data["status"] = request.data["status"]
+        elif user_group == DELIVERY_CREW_GROUP:
+            data["status"] = request.data["status"]
+        else:
+            return Response("Not allowed", status=status.HTTP_403_FORBIDDEN)
         serializer = OrderSerializer(order, data=data)
         if serializer.is_valid():
             serializer.save()
@@ -191,7 +212,26 @@ class OrdersDetail(APIView):
 
     def patch(self, request, id, format=None):
         order = get_object_or_404(Order, id=id)
-        serializer = OrderSerializer(order, data=request.data, partial=True)
+        user_group = get_group(request.user)
+        data = {}
+        if user_group == MANAGER_GROUP:
+            data["delivery_crew"] = request.data["delivery_crew"]
+            data["status"] = request.data["status"]
+        elif user_group == DELIVERY_CREW_GROUP:
+            data["status"] = request.data["status"]
+        else:
+            return Response("Not allowed", status=status.HTTP_403_FORBIDDEN)
+        serializer = OrderSerializer(order, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
-        return Response(serializer.data)
+            return Response(serializer.data)
+        return Response({ "errorMessages": serializer.errors }, status=status.HTTP_400_BAD_REQUEST)
+    
+    def delete(self, request, id, format=None):
+        user_group = get_group(request.user)
+        if user_group == MANAGER_GROUP:
+            order = get_object_or_404(Order, id=id)
+            order.delete()
+            return Response(status=status.HTTP_200_OK)
+        else:
+            return Response("Not allowed", status=status.HTTP_403_FORBIDDEN)
