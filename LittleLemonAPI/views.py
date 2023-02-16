@@ -1,9 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, throttle_classes, permission_classes
 from rest_framework import status
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User, Group
 from django.shortcuts import get_object_or_404, get_list_or_404
+from django.core.paginator import Paginator, EmptyPage
 from .serializers import ManagerSerializer, MenuItemSerializer, CartSerializer, OrderSerializer
 from .models import MenuItem, Cart, Order, OrderItem
 from datetime import datetime
@@ -86,16 +89,35 @@ def delivery_crew_detail(request, userId):
 
 class MenuItemsList(APIView):
     def get(self, request, format=None):        
-        menu_items = MenuItem.objects.all()
-        serializer = MenuItemSerializer(menu_items, many=True)
-        return Response(serializer.data)
+        menu_items = MenuItem.objects.select_related("category").all()
+        category_name = request.query_params.get("category")
+        to_price = request.query_params.get("to_price")
+        search = request.query_params.get("search")
+        ordering = request.query_params.get("ordering")
+        perpage = request.query_params.get("perpage", default=2)
+        page = request.query_params.get("page", default=1)
+        if category_name:
+            menu_items = menu_items.filter(category__title=category_name)
+        if to_price:
+            menu_items = menu_items.filter(price__lte=to_price)
+        if search:
+            menu_items = menu_items.filter(title__startswith=search)
+        if ordering:
+            ordering_fields = ordering.split(",")
+            menu_items = menu_items.order_by(*ordering_fields)
+        paginator = Paginator(menu_items, per_page=perpage)
+        try:
+            menu_items = paginator.page(number=page)
+        except EmptyPage:
+            menu_items = []
+        serialized_item = MenuItemSerializer(menu_items, many=True)
+        return Response(serialized_item.data)
 
     def post(self, request, format=None):
-        serializer = MenuItemSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({ "message": "new menu item added" }, status=status.HTTP_201_CREATED)
-        return Response({ "errorMessages": serializer.errors }, status=status.HTTP_400_BAD_REQUEST)
+        serialized_item = MenuItemSerializer(data=request.data)
+        serialized_item.is_valid(raise_exception=True)
+        serialized_item.save()
+        return Response(serialized_item.validated_data, status=status.HTTP_201_CREATED)
     
 class MenuItemsDetail(APIView):
     def get(self, request, id, format=None):
@@ -235,3 +257,14 @@ class OrdersDetail(APIView):
             return Response(status=status.HTTP_200_OK)
         else:
             return Response("Not allowed", status=status.HTTP_403_FORBIDDEN)
+
+@api_view()
+@throttle_classes([AnonRateThrottle])
+def throttle_check(request):
+    return Response("message for all user")
+
+@api_view()
+@permission_classes([IsAuthenticated])
+@throttle_classes([UserRateThrottle])
+def throttle_check_auth(request):
+    return Response("message for logged in user only")

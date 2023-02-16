@@ -10,5 +10,7 @@ urlpatterns = [
     path('menu-items/<int:id>', views.MenuItemsDetail.as_view()),
     path('cart/menu-items', views.CartList.as_view()),
     path('orders', views.OrdersList.as_view()),
-    path('orders/<int:id>', views.OrdersDetail.as_view())
+    path('orders/<int:id>', views.OrdersDetail.as_view()),
+    path('throttle-check', views.throttle_check),
+    path('throttle-check-auth', views.throttle_check_auth)
 ]
