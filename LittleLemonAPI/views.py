@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User, Group
 from django.shortcuts import get_object_or_404, get_list_or_404
 from django.core.paginator import Paginator, EmptyPage
-from .serializers import ManagerSerializer, MenuItemSerializer, CartSerializer, OrderSerializer
+from .serializers import UserSerializer, MenuItemSerializer, CartSerializer, OrderSerializer
 from .models import MenuItem, Cart, Order, OrderItem
 from datetime import datetime
 
@@ -22,70 +22,60 @@ def get_group(user):
         return DELIVERY_CREW_GROUP
     else:
         return CUSTOMER_GROUP     
-
-@api_view(["GET", "POST"])
-def manager_list(request):
-    if request.method == "GET":
+    
+class ManagerList(APIView):
+    def get(self, request, format=None):
         managers = []
         for user in User.objects.all():
             if user.groups.filter(name=MANAGER_GROUP).exists():            
-                serializer = ManagerSerializer(user)
-                managers.append(serializer.data)
+                serialized_item = UserSerializer(user)
+                managers.append(serialized_item.data)
         return Response(managers)
-    elif request.method == "POST":
+
+    def post(self, request, format=None):
         username = request.data["username"]
         if username:
             user = get_object_or_404(User, username=username)
             managers = Group.objects.get(name=MANAGER_GROUP)
             managers.user_set.add(user)
-            return Response({ "message": "user added to the manager group" }, status=status.HTTP_201_CREATED)
-        return Response({ "message": "error" }, status=status.HTTP_400_BAD_REQUEST)
-    else:
-        return Response({ "message": "method not allowed" }, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-@api_view(["DELETE"])
-def manager_detail(request, userId):
-    if request.method == "DELETE":
+            return Response(status=status.HTTP_201_CREATED)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+    
+class ManagerDetail(APIView):
+    def delete(self, request, userId, format=None):
         if userId:
             user = get_object_or_404(User, id=userId)
             managers = Group.objects.get(name=MANAGER_GROUP)
             managers.user_set.remove(user)
-            return Response({ "message": "user removed from the manager group" }, status=status.HTTP_200_OK)
-        return Response({ "message": "error" }, status=status.HTTP_400_BAD_REQUEST)
-    else:
-        return Response({ "message": "method not allowed" }, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+            return Response(status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
     
-@api_view(["GET", "POST"])
-def delivery_crew_list(request):
-    if request.method == "GET":
+class DeliveryCrewList(APIView):
+    def get(self, request, format=None):
         delivery_crew = []
         for user in User.objects.all():
             if user.groups.filter(name=DELIVERY_CREW_GROUP).exists():            
-                serializer = ManagerSerializer(user)
-                delivery_crew.append(serializer.data)
+                serialized_item = UserSerializer(user)
+                delivery_crew.append(serialized_item.data)
         return Response(delivery_crew)
-    elif request.method == "POST":
+    
+    def post(self, request, format=None):
         username = request.data["username"]
         if username:
             user = get_object_or_404(User, username=username)
             delivery_crew = Group.objects.get(name=DELIVERY_CREW_GROUP)
             delivery_crew.user_set.add(user)
-            return Response({ "message": "user added to the delivery crew group" }, status=status.HTTP_201_CREATED)
-        return Response({ "message": "error" }, status=status.HTTP_400_BAD_REQUEST)
-    else:
-        return Response({ "message": "method not allowed" }, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-@api_view(["DELETE"])
-def delivery_crew_detail(request, userId):
-    if request.method == "DELETE":
+            return Response(status=status.HTTP_201_CREATED)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+    
+class DeliveryCrewDetail(APIView):
+    def delete(self, request, userId, format=None):
         if userId:
             user = get_object_or_404(User, id=userId)
             delivery_crew = Group.objects.get(name=DELIVERY_CREW_GROUP)
             delivery_crew.user_set.remove(user)
-            return Response({ "message": "user removed from the delivery crew group" }, status=status.HTTP_200_OK)
-        return Response({ "message": "error" }, status=status.HTTP_400_BAD_REQUEST)
-    else:
-        return Response({ "message": "method not allowed" }, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+            return Response(status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_400_BAD_REQUEST)
 
 class MenuItemsList(APIView):
     def get(self, request, format=None):        
@@ -257,14 +247,3 @@ class OrdersDetail(APIView):
             return Response(status=status.HTTP_200_OK)
         else:
             return Response("Not allowed", status=status.HTTP_403_FORBIDDEN)
-
-@api_view()
-@throttle_classes([AnonRateThrottle])
-def throttle_check(request):
-    return Response("message for all user")
-
-@api_view()
-@permission_classes([IsAuthenticated])
-@throttle_classes([UserRateThrottle])
-def throttle_check_auth(request):
-    return Response("message for logged in user only")
