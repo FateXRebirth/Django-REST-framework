@@ -1,4 +1,4 @@
-Group: Customer(superuser)
+Group: Superuser
 Username: admin
 Password: admin@lemon
 Token: 53016844f5182dda436df0fa807a6bd1d2009c4f
@@ -12,3 +12,13 @@ Group: Delivery Crew
 Username: jimmydoe
 Password: jimmydoe@littlelemon
 Token: ff65f9524c7d6c8581b11ba25a792084fbdee1c8
+
+Group: Customer
+Username: vincentkuo
+Password: vincentkuo@littlelemon
+Token: efa3778558b822c8868e34365db876b59ed5a7f1
+
+Group: Customer
+Username: peterpan
+Password: peterpan@littlelemon
+Token: 44058be4081b8cf44aaf8d875f8b27b4fd0efa37
