@@ -37,59 +37,71 @@ def get_group(user):
     else:
         return CUSTOMER_GROUP
     
+@permission_classes([IsAuthenticated])
 class ManagerList(APIView):
+
+    @only_for([MANAGER_GROUP])
     def get(self, request, format=None):
         managers = []
-        for user in User.objects.all():
+        for user in get_list_or_404(User):
             if user.groups.filter(name=MANAGER_GROUP).exists():            
                 serialized_item = UserSerializer(user)
                 managers.append(serialized_item.data)
         return Response(managers)
 
+    @only_for([MANAGER_GROUP])
     def post(self, request, format=None):
-        username = request.data["username"]
-        if username:
+        try:
+            username = request.data["username"]
             user = get_object_or_404(User, username=username)
             managers = Group.objects.get(name=MANAGER_GROUP)
             managers.user_set.add(user)
             return Response(status=status.HTTP_201_CREATED)
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+        except:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
     
+@permission_classes([IsAuthenticated])
 class ManagerDetail(APIView):
+
+    @only_for([MANAGER_GROUP])
     def delete(self, request, userId, format=None):
-        if userId:
-            user = get_object_or_404(User, id=userId)
-            managers = Group.objects.get(name=MANAGER_GROUP)
-            managers.user_set.remove(user)
-            return Response(status=status.HTTP_200_OK)
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+        user = get_object_or_404(User, id=userId)
+        managers = Group.objects.get(name=MANAGER_GROUP)
+        managers.user_set.remove(user)
+        return Response(status=status.HTTP_200_OK)
     
+@permission_classes([IsAuthenticated])
 class DeliveryCrewList(APIView):
+
+    @only_for([MANAGER_GROUP])
     def get(self, request, format=None):
-        delivery_crew = []
-        for user in User.objects.all():
+        delivery_crews = []
+        for user in get_list_or_404(User):
             if user.groups.filter(name=DELIVERY_CREW_GROUP).exists():            
                 serialized_item = UserSerializer(user)
-                delivery_crew.append(serialized_item.data)
-        return Response(delivery_crew)
+                delivery_crews.append(serialized_item.data)
+        return Response(delivery_crews)
     
+    @only_for([MANAGER_GROUP])
     def post(self, request, format=None):
-        username = request.data["username"]
-        if username:
+        try:
+            username = request.data["username"]
             user = get_object_or_404(User, username=username)
-            delivery_crew = Group.objects.get(name=DELIVERY_CREW_GROUP)
-            delivery_crew.user_set.add(user)
+            delivery_crews = Group.objects.get(name=DELIVERY_CREW_GROUP)
+            delivery_crews.user_set.add(user)
             return Response(status=status.HTTP_201_CREATED)
-        return Response(status=status.HTTP_400_BAD_REQUEST)
-    
+        except:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+        
+@permission_classes([IsAuthenticated])
 class DeliveryCrewDetail(APIView):
+
+    @only_for([MANAGER_GROUP])
     def delete(self, request, userId, format=None):
-        if userId:
-            user = get_object_or_404(User, id=userId)
-            delivery_crew = Group.objects.get(name=DELIVERY_CREW_GROUP)
-            delivery_crew.user_set.remove(user)
-            return Response(status=status.HTTP_200_OK)
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+        user = get_object_or_404(User, id=userId)
+        delivery_crews = Group.objects.get(name=DELIVERY_CREW_GROUP)
+        delivery_crews.user_set.remove(user)
+        return Response(status=status.HTTP_200_OK)
 
 @permission_classes([IsAuthenticated])
 class MenuItemsList(APIView):
@@ -160,27 +172,34 @@ class MenuItemsDetail(APIView):
         menu_item.delete()
         return Response(status=status.HTTP_200_OK)
 
+@permission_classes([IsAuthenticated])
 class CartList(APIView):
+
+    @only_for([CUSTOMER_GROUP])
     def get(self, request, format=None):
-        cart = Cart.objects.filter(user=request.user)
+        cart = get_list_or_404(Cart, user=request.user)
         serialized_item = CartSerializer(cart, many=True)
         return Response(serialized_item.data)
 
+    @only_for([CUSTOMER_GROUP])
     def post(self, request, format=None):
-        menu_item_name = request.data["menuitem"]
-        menu_item = MenuItem.objects.get(title=menu_item_name)
-        data = {
-            "user": request.user.id,
-            "menuitem": menu_item.id,
-            "quantity": request.data["quantity"],
-            "unit_price": menu_item.price,
-            "price": int(request.data["quantity"]) * menu_item.price
-        }
-        serialized_item = CartSerializer(data=data)
-        serialized_item.is_valid(raise_exception=True)
-        serialized_item.save()      
-        return Response(serialized_item.validated_data, status=status.HTTP_201_CREATED)
+        try:
+            menu_item = get_object_or_404(MenuItem, id=request.data["menuitem"])
+            data = {
+                "user": request.user.id,
+                "menuitem": menu_item.id,
+                "quantity": request.data["quantity"],
+                "unit_price": menu_item.price,
+                "price": int(request.data["quantity"]) * menu_item.price
+            }
+            serialized_item = CartSerializer(data=data)
+            serialized_item.is_valid(raise_exception=True)
+            serialized_item.save()
+            return Response(serialized_item.data, status=status.HTTP_201_CREATED)
+        except:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
 
+    @only_for([CUSTOMER_GROUP])
     def delete(self, request, format=None):
         for cart in get_list_or_404(Cart, user=request.user):
             cart.delete()
