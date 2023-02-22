@@ -1,8 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorators import api_view, throttle_classes, permission_classes
+from rest_framework.decorators import permission_classes
 from rest_framework import status
-from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+from rest_framework.throttling import UserRateThrottle
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User, Group
 from django.shortcuts import get_object_or_404, get_list_or_404
@@ -106,31 +106,34 @@ class DeliveryCrewDetail(APIView):
 @permission_classes([IsAuthenticated])
 class MenuItemsList(APIView):
     
+    def get_throttles(self):
+        if self.get:
+            return [UserRateThrottle()]
+        return []
+    
     @only_for([MANAGER_GROUP, DELIVERY_CREW_GROUP, CUSTOMER_GROUP])
     def get(self, request, format=None):
         menu_items = MenuItem.objects.select_related("category").all()
-        
-        # category_name = request.query_params.get("category")
-        # to_price = request.query_params.get("to_price")
-        # search = request.query_params.get("search")
-        # ordering = request.query_params.get("ordering")
-        # perpage = request.query_params.get("perpage", default=2)
-        # page = request.query_params.get("page", default=1)
-        # if category_name:
-        #     menu_items = menu_items.filter(category__title=category_name)
-        # if to_price:
-        #     menu_items = menu_items.filter(price__lte=to_price)
-        # if search:
-        #     menu_items = menu_items.filter(title__startswith=search)
-        # if ordering:
-        #     ordering_fields = ordering.split(",")
-        #     menu_items = menu_items.order_by(*ordering_fields)
-        # paginator = Paginator(menu_items, per_page=perpage)
-        # try:
-        #     menu_items = paginator.page(number=page)
-        # except EmptyPage:
-        #     menu_items = []
-        
+        category_name = request.query_params.get("category")
+        to_price = request.query_params.get("to_price")
+        search = request.query_params.get("search")
+        ordering = request.query_params.get("ordering")
+        perpage = request.query_params.get("perpage", default=2)
+        page = request.query_params.get("page", default=1)
+        if category_name:
+            menu_items = menu_items.filter(category__title=category_name)
+        if to_price:
+            menu_items = menu_items.filter(price__lte=to_price)
+        if search:
+            menu_items = menu_items.filter(title__startswith=search)
+        if ordering:
+            ordering_fields = ordering.split(",")
+            menu_items = menu_items.order_by(*ordering_fields)
+        paginator = Paginator(menu_items, per_page=perpage)
+        try:
+            menu_items = paginator.page(number=page)
+        except EmptyPage:
+            menu_items = []
         serialized_item = MenuItemSerializer(menu_items, many=True)
         return Response(serialized_item.data, status=status.HTTP_200_OK)
 
@@ -143,6 +146,11 @@ class MenuItemsList(APIView):
 
 @permission_classes([IsAuthenticated])
 class MenuItemsDetail(APIView):
+    
+    def get_throttles(self):
+        if self.get:
+            return [UserRateThrottle()]
+        return []
 
     @only_for([MANAGER_GROUP, DELIVERY_CREW_GROUP, CUSTOMER_GROUP])
     def get(self, request, id, format=None):
@@ -208,15 +216,45 @@ class CartList(APIView):
 @permission_classes([IsAuthenticated])
 class OrdersList(APIView):
     
+    def get_throttles(self):
+        if self.get:
+            return [UserRateThrottle()]
+        return []
+    
     @only_for([MANAGER_GROUP, DELIVERY_CREW_GROUP,  CUSTOMER_GROUP])
     def get(self, request, format=None):
         user_group = get_group(request.user)
         if user_group == MANAGER_GROUP:
-            orders = get_list_or_404(Order)
+            orders = Order.objects.select_related("user", "delivery_crew").all()
         elif user_group == DELIVERY_CREW_GROUP:
-            orders = get_list_or_404(Order, delivery_crew=request.user)
+            orders = Order.objects.select_related("user", "delivery_crew").filter(delivery_crew=request.user)
         else:
-            orders = get_list_or_404(Order, user=request.user)
+            orders = Order.objects.select_related("user", "delivery_crew").filter(user=request.user)
+        
+        user_name = request.query_params.get("user")
+        delivery_crew_name = request.query_params.get("delivery_crew")
+        to_total = request.query_params.get("to_total")
+        order_status = request.query_params.get("status")
+        ordering = request.query_params.get("ordering")
+        perpage = request.query_params.get("perpage", default=2)
+        page = request.query_params.get("page", default=1)
+        if user_name:
+            orders = orders.filter(user__username=user_name)
+        if delivery_crew_name:
+            orders = orders.filter(delivery_crew__username=delivery_crew_name)
+        if to_total:
+            orders = orders.filter(total__lte=to_total)
+        if order_status:
+            orders = orders.filter(status__exact=order_status)
+        if ordering:
+            ordering_fields = ordering.split(",")
+            orders = orders.order_by(*ordering_fields)
+        paginator = Paginator(orders, per_page=perpage)
+        try:
+            orders = paginator.page(number=page)
+        except EmptyPage:
+            orders = []
+        
         serialized_item = OrderSerializer(orders, many=True)
         return Response(serialized_item.data, status=status.HTTP_200_OK)
 
@@ -244,6 +282,11 @@ class OrdersList(APIView):
 
 @permission_classes([IsAuthenticated])
 class OrdersDetail(APIView):
+    
+    def get_throttles(self):
+        if self.get:
+            return [UserRateThrottle()]
+        return []
     
     @only_for([CUSTOMER_GROUP])
     def get(self, request, id, format=None):
