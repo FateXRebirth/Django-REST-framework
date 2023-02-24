@@ -1,4 +1,4 @@
-Group: Superuser
+Group: Manager(Superuser)
 Username: admin
 Password: admin@lemon
 Token: 53016844f5182dda436df0fa807a6bd1d2009c4f

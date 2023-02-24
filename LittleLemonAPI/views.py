@@ -7,8 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User, Group
 from django.shortcuts import get_object_or_404, get_list_or_404
 from django.core.paginator import Paginator, EmptyPage
-from .serializers import UserSerializer, MenuItemSerializer, CartSerializer, OrderSerializer
-from .models import MenuItem, Cart, Order, OrderItem
+from .serializers import UserSerializer, MenuItemSerializer, CartSerializer, OrderSerializer, CategorySerializer
+from .models import MenuItem, Cart, Order, OrderItem, Category
 from datetime import date
 
 MANAGER_GROUP = "Manager"
@@ -322,3 +322,20 @@ class OrdersDetail(APIView):
         order = get_object_or_404(Order, id=id)
         order.delete()
         return Response(status=status.HTTP_200_OK)
+
+@permission_classes([IsAuthenticated])
+class CategoriesList(APIView):
+    
+    @only_for([MANAGER_GROUP, CUSTOMER_GROUP])
+    def get(self, request, format=None):
+        categories = get_list_or_404(Category)
+        serialized_item = CategorySerializer(categories, many=True)
+        return Response(serialized_item.data, status=status.HTTP_200_OK)
+    
+    @only_for([MANAGER_GROUP])
+    def post(self, request, format=None):
+        serialized_item = CategorySerializer(data=request.data)
+        serialized_item.is_valid(raise_exception=True)
+        serialized_item.save()
+        return Response(serialized_item.data, status=status.HTTP_201_CREATED)
+    
